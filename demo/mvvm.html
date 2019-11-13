@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>mvvm</title>
+</head>
+<body>
+
+  <script>
+    // 1.实现一个整体的架构 包括发布者和订阅者
+    // 2.实现MVVM中的由M到V, 把模型内的数据绑定到视图
+    // 3.最后实现V-M, 当文本框输入文本的时候，触发事件更新到模型中的数据 同时也更新相对应的视图
+
+    // 发布者
+    class Vue {
+      constructor(options) {
+        this.$data = options.data;
+        this.$el = document.querySelector(options.el);
+
+        // 订阅者容器 
+        this._directive = {};
+
+        this.Observer(this.$data);
+        this.Complie(this.$el);
+      }
+
+      // 劫持数据
+      Observer(data) {
+        for (let key in data) {
+
+          // 处理成 {myText: [订阅者1, 订阅者2], myBox: [订阅者1, 订阅者2]}
+          this._directive[key] = [];
+
+          // 获取当前数据的订阅者数组
+          let watcher = this._directive[key];
+
+          // 数据劫持
+          Object.defineProperty(this.$data, key, {
+            get: function() {
+              return key;
+            },
+            set: function(newVal) {
+              if(newVal !== key) {
+                //赋值
+                key = newVal; 
+                // 遍历每一个订阅者的实例 更新数据
+                watcher.forEach(ele => {
+                  ele.update();
+                });
+              }
+            }
+          });
+        }
+      }
+
+      // 主要功能 解析指令
+      Complie(el) {
+        let nodes = el.children;
+        for (let i=0; i<nodes.length; i++) {
+          let node = nodes[i];
+
+          if (node.children.length) {
+            this.Complie(node);
+          }
+
+          if (node.hasAttribute("v-text")) {
+            let attrVal = node.getAttribute("v-text");
+            this._directive[attrVal].push(new Watcher(node, this, attrVal, "innerHTML"));
+          }
+
+          if (node.hasAttribute("v-model")) {
+            let attrVal = node.getAttribute("v-model");
+            this._directive[attrVal].push(new Watcher(node, this, attrVal, "value"));
+            node.addEventListener("input", ()=> {
+              this.$data[attrVal] = node.value;
+            });
+          }
+        }
+      }
+    }
+
+    // 订阅者 (主要功能是更新视图)
+    class Watcher {
+      constructor(el, vm, exp, attr) {
+        this.el = el;
+        this.vm = vm;
+        this.exp = exp;
+        this.attr = attr;
+        this.update();
+      }
+      update() {
+        this.el[this.attr] = this.vm.$data[this.exp];
+      }
+    }
+
+
+  </script>
+
+  <div id="app">
+    <h1>数据响应式</h1>
+    <div>
+      <div v-text="myText"></div>
+      <div v-text="myBox"></div>
+      <input type="text" v-model="myText">
+      <input type="text" v-model="myBox">
+    </div>
+  </div>
+
+  <script>
+    const app = new Vue({
+      el: "#app",
+      data: {
+        myText: "兄弟们晚上好！",
+        myBox: "这是一个盒子",
+      }
+    });
+  </script>
+</body>
+</html>

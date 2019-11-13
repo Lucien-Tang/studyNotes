@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Promise</title>
+</head>
+<body>
+  
+<script>
+
+/*
+  回调函数里执行resolve -  then方法把回调加入resolveArr 执行整个resolveArr 
+  并且改变状态   返回新的promise
+
+  promise  我讲一下大概的思路吧   首先是promise对象里定义有状态值 状态值有pending, resolve reject 三种，另外要有两个装回调队列的数组  resolve 和 reject 调用then方法的时候  会先判断一下当前状态， 如果是 resolve  那么就会去执行resolve数组里的所有队列， reject也是一样的。
+
+
+*/
+
+
+function isFunction(fn) {
+  return typeof fn === 'function'
+}
+
+function myPromise(handle) {
+  this.status = "PENDING",
+  this.val = undefined;
+  this.resolveArr = [];
+  this.rejectArr = [];
+  this.resolve = function(value) {
+    if(this.status!=="PENDING") return
+    this.status = "RESOLVE";
+    this.val = value;
+    var cb;
+    setTimeout(()=> {
+      while(cb = this.resolveArr.shift()) {
+        cb();
+      }
+    })
+  }
+  this.reject = function(value) {
+    if(this.status!=="PENDING") return
+    this.status = "REJECT";
+    this.val = value;
+  }
+
+  try {
+    handle(this.resolve.bind(this),this.reject.bind(this));
+  } catch(err) {
+    throw err;
+  }
+}
+
+myPromise.prototype.then = function(suc, err) {
+  var val = this.val;
+  var status = this.status;
+
+  return new myPromise((resolve, reject)=> {
+    var _fn = undefined;
+    var _handle = undefined;
+    var run = function() {
+      try{
+        if (!isFunction(suc)) {
+          _fn(suc)
+        } else {
+          let res = _handle(val);
+          resolve(res);
+        }
+      }catch(err) {
+        reject(err);
+      }
+    }
+
+    switch (status) {
+      case "PENDING": 
+        this.resolveArr.push(suc);
+        this.rejectArr.push(suc);
+        break;
+      case "RESOLVE":
+        _fn = resolve;
+        _handle = suc;
+        run();
+        break;
+      case "REJECT":
+        _fn = reject;
+        _handle = err;
+        run();
+        break;
+    }
+  })
+}
+
+console.log(new myPromise(function(resolve,reject) {
+  setTimeout(()=>{
+    resolve(4);
+  },2000);
+}).then(res=>{
+  console.log(res);
+  return 123 + res
+}))
+
+</script>
+</body>
+</html>
